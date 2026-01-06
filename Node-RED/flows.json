@@ -1,0 +1,632 @@
+[
+	{
+		"id": "5c788085.29e4f",
+		"type": "debug",
+		"z": "bf9f6d02.4d2be",
+		"name": "Original Message",
+		"active": true,
+		"console": "false",
+		"complete": "payload",
+		"x": 277.33331298828125,
+		"y": 71.11111450195312,
+		"wires": []
+	},
+	{
+		"id": "940e6e30.03e368",
+		"type": "tcp in",
+		"z": "bf9f6d02.4d2be",
+		"name": "",
+		"server": "client",
+		"host": "localhost",
+		"port": "60003",
+		"datamode": "stream",
+		"datatype": "buffer",
+		"newline": "~E",
+		"topic": "",
+		"base64": false,
+		"x": 95,
+		"y": 22,
+		"wires": [
+			[
+				"5c0674d8.2a518c"
+			]
+		]
+	},
+	{
+		"id": "5c0674d8.2a518c",
+		"type": "function",
+		"z": "bf9f6d02.4d2be",
+		"name": "Read TinyOS Serial Message",
+		"func": "// MODIFY HERE WITH LENGTH OF PAYLOAD IN BYTES (temp=2 + hum=2)\nconst PAYLOAD_BYTES = 4;\n\nlet tempMsg = {};\nlet humMsg = {};\nlet combinedMsg = {};\nlet ready = false;\n\n// Initialize context\ncontext.bytes_received = context.bytes_received || 0;\ncontext.bytes_array = context.bytes_array || [];\n\n// Add incoming bytes to context buffer\ncontext.bytes_received += msg.payload.length;\nfor (let i = 0; i < msg.payload.length; i++) {\n  context.bytes_array.push(msg.payload[i]);\n}\n\n// Your original flow assumes:\n//   13 bytes framing/header + PAYLOAD_BYTES\nconst REQUIRED_BYTES = 13 + PAYLOAD_BYTES;\n\nif (context.bytes_received >= REQUIRED_BYTES) {\n  // Full frame collected\n  msg.payload = context.bytes_array;\n\n  // NOTE: These slices match the original project offsets.\n  // If your serial frame layout changes, adjust these indices.\n  const tempBytesArr = context.bytes_array.slice(10, -5);\n  const humBytesArr  = context.bytes_array.slice(12, -3);\n\n  // Reset buffer for next frame\n  context.bytes_received = 0;\n  context.bytes_array = [];\n\n  // Convert to Buffer\n  const tempBuf = Buffer.from(tempBytesArr);\n  const humBuf  = Buffer.from(humBytesArr);\n\n  // Read raw samples\n  const tempRaw = tempBuf.readUInt16BE(0);\n  const humRaw  = humBuf.readUInt16BE(0);\n\n  tempMsg = { payload: tempRaw };\n  humMsg  = { payload: humRaw };\n\n  // Scale to 0..100\n  const temperature = Math.round(tempRaw * (100 / 65535));\n  const humidity    = Math.round(humRaw  * (100 / 65535));\n\n  combinedMsg.payload = {\n    date: new Date().toTimeString(),\n    Temperature: temperature,\n    Humidity: humidity,\n    raw: { tempRaw, humRaw }\n  };\n\n  ready = true;\n}\n\nif (ready) {\n  return [msg, tempMsg, humMsg, combinedMsg];\n}\nreturn null;\n",
+		"outputs": "4",
+		"noerr": 0,
+		"x": 157.44442749023438,
+		"y": 166.55557250976562,
+		"wires": [
+			[
+				"5c788085.29e4f"
+			],
+			[
+				"a6d13c4b.8206d"
+			],
+			[
+				"9a7f383.3e11948"
+			],
+			[
+				"c581dd89.76b2",
+				"16502942.59a667",
+				"6b26dd4b.9dd08c",
+				"ac1d4fc6.289ff8"
+			]
+		]
+	},
+	{
+		"id": "2de0686d.ae0bc",
+		"type": "debug",
+		"z": "bf9f6d02.4d2be",
+		"name": "temp",
+		"active": true,
+		"console": "false",
+		"complete": "payload",
+		"x": 744.0001220703125,
+		"y": 143.88885498046875,
+		"wires": []
+	},
+	{
+		"id": "5ae6dda5.d4c534",
+		"type": "debug",
+		"z": "bf9f6d02.4d2be",
+		"name": "humid",
+		"active": true,
+		"console": "false",
+		"complete": "payload",
+		"x": 742.9722290039062,
+		"y": 175.41668701171875,
+		"wires": []
+	},
+	{
+		"id": "a6d13c4b.8206d",
+		"type": "range",
+		"z": "bf9f6d02.4d2be",
+		"minin": "0",
+		"maxin": "65535",
+		"minout": "0",
+		"maxout": "100",
+		"action": "scale",
+		"round": true,
+		"name": "Tempreture",
+		"x": 525.2777404785156,
+		"y": 144.44439697265625,
+		"wires": [
+			[
+				"2de0686d.ae0bc",
+				"3615730d.bb219c"
+			]
+		]
+	},
+	{
+		"id": "9a7f383.3e11948",
+		"type": "range",
+		"z": "bf9f6d02.4d2be",
+		"minin": "0",
+		"maxin": "65535",
+		"minout": "0",
+		"maxout": "100",
+		"action": "scale",
+		"round": true,
+		"name": "Humidity",
+		"x": 516.1666259765625,
+		"y": 177.88888549804688,
+		"wires": [
+			[
+				"5ae6dda5.d4c534",
+				"25e3c7f0.7fc4f8"
+			]
+		]
+	},
+	{
+		"id": "c581dd89.76b2",
+		"type": "debug",
+		"z": "bf9f6d02.4d2be",
+		"name": "Serial string message",
+		"active": true,
+		"console": "false",
+		"complete": "true",
+		"x": 175.94442749023438,
+		"y": 249.3333740234375,
+		"wires": []
+	},
+	{
+		"id": "879fcf5c.bbb3d",
+		"type": "http request",
+		"z": "bf9f6d02.4d2be",
+		"name": "Google Drive",
+		"method": "POST",
+		"ret": "txt",
+		"url": "https://docs.google.com/forms/d/<TOKEN>/formResponse?entry.<INPUT_ID_0>={{Temperature}}&entry.<INPUT_ID_1>={{Humidity}}&entry.<INPUT_ID_2>={{date}}",
+		"x": 747.5,
+		"y": 278.5555725097656,
+		"wires": [
+			[
+				"3a74312e.f86e86"
+			]
+		]
+	},
+	{
+		"id": "6b26dd4b.9dd08c",
+		"type": "http request",
+		"z": "bf9f6d02.4d2be",
+		"name": "DWEET",
+		"method": "POST",
+		"ret": "txt",
+		"url": "https://dweet.io/dweet/for/IOT_EXAPLE?temp={{payload.Temperature}}&humid={{payload.Humidity}}",
+		"x": 485.5,
+		"y": 322.5555725097656,
+		"wires": [
+			[
+				"2d7de636.95a1ca"
+			]
+		]
+	},
+	{
+		"id": "3a74312e.f86e86",
+		"type": "debug",
+		"z": "bf9f6d02.4d2be",
+		"name": "Aknowledge from Google Form",
+		"active": false,
+		"console": "false",
+		"complete": "payload",
+		"x": 1010.5,
+		"y": 278.5555725097656,
+		"wires": []
+	},
+	{
+		"id": "2d7de636.95a1ca",
+		"type": "debug",
+		"z": "bf9f6d02.4d2be",
+		"name": "Acknowledge from Dweet",
+		"active": false,
+		"console": "false",
+		"complete": "payload",
+		"x": 912.5,
+		"y": 324.5555725097656,
+		"wires": []
+	},
+	{
+		"id": "ac1d4fc6.289ff8",
+		"type": "file",
+		"z": "bf9f6d02.4d2be",
+		"name": "save log file to sensorlog.txt",
+		"filename": "./sensorlog.txt",
+		"appendNewline": true,
+		"createDir": true,
+		"overwriteFile": "false",
+		"x": 545,
+		"y": 363.5,
+		"wires": []
+	},
+	{
+		"id": "8ee86da2.432a78",
+		"type": "inject",
+		"z": "bf9f6d02.4d2be",
+		"name": "Read from logfile and plot 100 latest samples",
+		"topic": "",
+		"payload": "",
+		"payloadType": "date",
+		"repeat": "",
+		"crontab": "",
+		"once": false,
+		"x": 312,
+		"y": 403.5,
+		"wires": [
+			[
+				"297b0ffa.d2b1b",
+				"df8da7a6.914be8"
+			]
+		]
+	},
+	{
+		"id": "297b0ffa.d2b1b",
+		"type": "file in",
+		"z": "bf9f6d02.4d2be",
+		"name": "sensorlog.txt",
+		"filename": "/home/user/PROJECT/sensorlog.txt",
+		"format": "utf8",
+		"x": 660,
+		"y": 405.5,
+		"wires": [
+			[
+				"e2807b8a.1266e8"
+			]
+		]
+	},
+	{
+		"id": "e20ce2ca.6520d8",
+		"type": "debug",
+		"z": "bf9f6d02.4d2be",
+		"name": "",
+		"active": false,
+		"console": "false",
+		"complete": "true",
+		"x": 1154,
+		"y": 406,
+		"wires": []
+	},
+	{
+		"id": "334c738c.e90954",
+		"type": "exec",
+		"z": "bf9f6d02.4d2be",
+		"command": "rm /home/user/PROJECT/sensorlog.txt",
+		"addpay": false,
+		"append": "",
+		"useSpawn": "",
+		"name": "Delete logfile",
+		"x": 704,
+		"y": 658,
+		"wires": [
+			[],
+			[],
+			[]
+		]
+	},
+	{
+		"id": "cf93bff4.0dd13",
+		"type": "inject",
+		"z": "bf9f6d02.4d2be",
+		"name": "Delete logfile ",
+		"topic": "",
+		"payload": "",
+		"payloadType": "date",
+		"repeat": "",
+		"crontab": "",
+		"once": false,
+		"x": 212,
+		"y": 658.5,
+		"wires": [
+			[
+				"334c738c.e90954"
+			]
+		]
+	},
+	{
+		"id": "16502942.59a667",
+		"type": "function",
+		"z": "bf9f6d02.4d2be",
+		"name": "ready for cloud",
+		"func": "var data = msg.payload;\nmsg = {};\nmsg.Humidity = data.Humidity;\nmsg.Temperature = data.Temperature;\nmsg.date = data.date;\n\nreturn msg;",
+		"outputs": 1,
+		"noerr": 0,
+		"x": 506,
+		"y": 279,
+		"wires": [
+			[
+				"879fcf5c.bbb3d"
+			]
+		]
+	},
+	{
+		"id": "3615730d.bb219c",
+		"type": "switch",
+		"z": "bf9f6d02.4d2be",
+		"name": "Temperature > 50 trigger an email",
+		"property": "payload",
+		"propertyType": "msg",
+		"rules": [
+			{
+				"t": "gt",
+				"v": "50",
+				"vt": "num"
+			}
+		],
+		"checkall": "true",
+		"outputs": 1,
+		"x": 563,
+		"y": 68.5,
+		"wires": [
+			[
+				"ceea19af.477028"
+			]
+		]
+	},
+	{
+		"id": "b14671ac.1d63b8",
+		"type": "e-mail",
+		"z": "bf9f6d02.4d2be",
+		"server": "smtp.gmail.com",
+		"port": "465",
+		"name": "XXXXXXX@yahoo.com",
+		"dname": "alarm email",
+		"x": 1134,
+		"y": 137,
+		"wires": []
+	},
+	{
+		"id": "4bec349e.ee947c",
+		"type": "change",
+		"z": "bf9f6d02.4d2be",
+		"name": "email builder",
+		"rules": [
+			{
+				"t": "set",
+				"p": "topic",
+				"pt": "msg",
+				"to": "Sensor high temperature alarm",
+				"tot": "str"
+			}
+		],
+		"action": "",
+		"property": "",
+		"from": "",
+		"to": "",
+		"reg": false,
+		"x": 1050,
+		"y": 68.5,
+		"wires": [
+			[
+				"b14671ac.1d63b8"
+			]
+		]
+	},
+	{
+		"id": "ceea19af.477028",
+		"type": "template",
+		"z": "bf9f6d02.4d2be",
+		"name": "email text",
+		"field": "payload",
+		"fieldType": "msg",
+		"format": "handlebars",
+		"syntax": "mustache",
+		"template": "This email has sent to notify high Temperture detection: {{payload}} Celsius !\nTake care.",
+		"x": 867,
+		"y": 68.5,
+		"wires": [
+			[
+				"4bec349e.ee947c"
+			]
+		]
+	},
+	{
+		"id": "5b828425.6e5ed4",
+		"type": "twitter out",
+		"z": "bf9f6d02.4d2be",
+		"twitter": "",
+		"name": "alarm Tweet",
+		"x": 1136,
+		"y": 181,
+		"wires": []
+	},
+	{
+		"id": "9bd75e0a.fe603",
+		"type": "template",
+		"z": "bf9f6d02.4d2be",
+		"name": "email text",
+		"field": "payload",
+		"fieldType": "msg",
+		"format": "handlebars",
+		"syntax": "mustache",
+		"template": "This is test project Humidity alarm to notify high humidity: {{payload}} %RH !\nTake care.",
+		"x": 874,
+		"y": 236,
+		"wires": [
+			[
+				"5b828425.6e5ed4"
+			]
+		]
+	},
+	{
+		"id": "25e3c7f0.7fc4f8",
+		"type": "switch",
+		"z": "bf9f6d02.4d2be",
+		"name": "Humidity > 80% broadcast Tweets an alarm",
+		"property": "payload",
+		"propertyType": "msg",
+		"rules": [
+			{
+				"t": "gt",
+				"v": "80",
+				"vt": "num"
+			}
+		],
+		"checkall": "true",
+		"outputs": 1,
+		"x": 597,
+		"y": 235.5,
+		"wires": [
+			[
+				"9bd75e0a.fe603"
+			]
+		]
+	},
+	{
+		"id": "7640efa5.cb64b",
+		"type": "inject",
+		"z": "bf9f6d02.4d2be",
+		"name": "Open Folder",
+		"topic": "",
+		"payload": "",
+		"payloadType": "date",
+		"repeat": "",
+		"crontab": "",
+		"once": false,
+		"x": 214,
+		"y": 555.5,
+		"wires": [
+			[
+				"1625ed3.3812993"
+			]
+		]
+	},
+	{
+		"id": "1625ed3.3812993",
+		"type": "exec",
+		"z": "bf9f6d02.4d2be",
+		"command": "nautilus ./",
+		"addpay": false,
+		"append": "",
+		"useSpawn": "",
+		"name": "Open folder containing file",
+		"x": 753,
+		"y": 557,
+		"wires": [
+			[],
+			[],
+			[]
+		]
+	},
+	{
+		"id": "b0835f60.f6c3c",
+		"type": "exec",
+		"z": "bf9f6d02.4d2be",
+		"command": "xdg-open 'https://freeboard.io/board/<BOARD_ID>'",
+		"addpay": false,
+		"append": "",
+		"useSpawn": "",
+		"name": "Freeboard real-time",
+		"x": 733,
+		"y": 506,
+		"wires": [
+			[],
+			[],
+			[]
+		]
+	},
+	{
+		"id": "f7a80587.9be92",
+		"type": "inject",
+		"z": "bf9f6d02.4d2be",
+		"name": "Watch realtime Graph",
+		"topic": "",
+		"payload": "",
+		"payloadType": "date",
+		"repeat": "",
+		"crontab": "",
+		"once": false,
+		"x": 244,
+		"y": 506.5,
+		"wires": [
+			[
+				"b0835f60.f6c3c"
+			]
+		]
+	},
+	{
+		"id": "e2807b8a.1266e8",
+		"type": "function",
+		"z": "bf9f6d02.4d2be",
+		"name": "newline parser",
+		"func": "const outputMsgs = [];\nconst logs = String(msg.payload || '').split(/\\r?\\n/);\n\nfor (const line of logs) {\n  if (!line.trim()) continue;\n  try {\n    outputMsgs.push({ payload: JSON.parse(line) });\n  } catch (e) {\n    node.warn(`Skipping invalid JSON line: ${e.message}`);\n  }\n}\nreturn [outputMsgs];\n",
+		"outputs": 1,
+		"noerr": 0,
+		"x": 844,
+		"y": 406.5,
+		"wires": [
+			[
+				"e20ce2ca.6520d8",
+				"cdd18275.b6a2b"
+			]
+		]
+	},
+	{
+		"id": "d2804ca3.bb1e88",
+		"type": "exec",
+		"z": "bf9f6d02.4d2be",
+		"command": "gedit ./sensorlog.txt",
+		"addpay": false,
+		"append": "",
+		"useSpawn": "",
+		"name": "open file in gedit",
+		"x": 723,
+		"y": 608,
+		"wires": [
+			[],
+			[],
+			[]
+		]
+	},
+	{
+		"id": "5ddde6dc.af973",
+		"type": "inject",
+		"z": "bf9f6d02.4d2be",
+		"name": "Open logfile",
+		"topic": "",
+		"payload": "",
+		"payloadType": "date",
+		"repeat": "",
+		"crontab": "",
+		"once": false,
+		"x": 216,
+		"y": 605.5,
+		"wires": [
+			[
+				"d2804ca3.bb1e88"
+			]
+		]
+	},
+	{
+		"id": "d550361e.823178",
+		"type": "debug",
+		"z": "bf9f6d02.4d2be",
+		"name": "Aknowledge from Google Form",
+		"active": false,
+		"console": "false",
+		"complete": "payload",
+		"x": 1202,
+		"y": 364,
+		"wires": []
+	},
+	{
+		"id": "cdd18275.b6a2b",
+		"type": "http request",
+		"z": "bf9f6d02.4d2be",
+		"name": "Google Drive",
+		"method": "POST",
+		"ret": "txt",
+		"url": "https://docs.google.com/forms/d/<TOKEN>/formResponse?entry.<INPUT_ID_0>={{payload.Temperature}}&entry.<INPUT_ID_1>={{payload.Humidity}}&entry.<INPUT_ID_2>={{payload.date}}",
+		"x": 988,
+		"y": 364,
+		"wires": [
+			[
+				"d550361e.823178"
+			]
+		]
+	},
+	{
+		"id": "cc01c422.6d33e8",
+		"type": "exec",
+		"z": "bf9f6d02.4d2be",
+		"command": "xdg-open https://docs.google.com/spreadsheets/d/<TOKEN>/pubchart?oid=<CHART_ID>&format=interactive",
+		"addpay": false,
+		"append": "",
+		"useSpawn": "",
+		"name": "plot last 100 samples",
+		"x": 735,
+		"y": 454,
+		"wires": [
+			[],
+			[],
+			[]
+		]
+	},
+	{
+		"id": "df8da7a6.914be8",
+		"type": "delay",
+		"z": "bf9f6d02.4d2be",
+		"name": "",
+		"pauseType": "delay",
+		"timeout": "5",
+		"timeoutUnits": "seconds",
+		"rate": "1",
+		"rateUnits": "second",
+		"randomFirst": "1",
+		"randomLast": "5",
+		"randomUnits": "seconds",
+		"drop": false,
+		"x": 553,
+		"y": 454.5,
+		"wires": [
+			[
+				"cc01c422.6d33e8"
+			]
+		]
+	}
+]
