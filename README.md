@@ -1,4 +1,4 @@
-# TinyOS WSN (IoT) → Node-RED Sensor Data Logger + Cooja Simulation
+# IoT WSN → TinyOS → Cooja Simulation → Node-RED
 
 An end-to-end IoT / WSN demo showing how to:
 
